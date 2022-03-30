@@ -1,0 +1,65 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+
+
+
+  <body>
+    <div class="">
+        <p id="coord"  style="padding: 10px; background-color: white; border-radius: 5px; cursor: pointer;" class="d-flex justify-content-center">Get current Location</p>
+     
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script>
+
+    $(document).ready(function(){
+    function ipLookUp () {
+        $.ajax('http://ip-api.com/json')
+        .then(
+            function success(response) {
+              $.get('/nearestBanks?lat='+ response.lat + "&lon="+ response.lon, function(){
+            alert('data')
+        })
+            }
+        ),
+        function fail(error){
+            console.log('request failed')
+        }
+    }
+
+
+    $('#coord').click(function(){
+        getLocation();
+    })
+
+
+    function showPosition(position) {
+        alert(2)
+        var lat = position.coords.latitude;
+        var lon = position.coords.longitude;
+
+        // $.get('/nearestBanks?lat='+ lat + "&lon="+ lon, function(){
+        //  alert('data')
+        // })
+      }
+
+    
+    function getLocation() {
+        if (navigator.geolocation) {
+            alert(3)
+          navigator.geolocation.getCurrentPosition(showPosition);
+          alert(0)
+        }else { 
+            alert('eror')
+        }
+      }
+      return getLocation()
+
+    });
+
+    </script>
+  </body>
+</html>

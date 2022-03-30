@@ -1,0 +1,145 @@
+{% extends 'banks/base.html' %}
+{% load static %}
+
+
+
+{% block head %}
+
+<!-- {% block title %} Home | Dashboard {% endblock title %} -->
+
+{% block style %}
+	<style type="text/css">
+		.mn {
+		    -webkit-box-shadow: 13px 12px 5px -10px rgba(196, 194, 196, 0.72);
+		    -moz-box-shadow: 13px 12px 5px -10px rgba(196, 194, 196, 0.72);
+		    box-shadow: 13px 12px 5px -10px rgba(196, 194, 196, 0.72)
+		}
+	</style>
+
+{% endblock %}
+
+
+{% endblock %}
+
+
+
+
+{% block body %}
+
+
+<br>
+<br>
+<div class="container" style="background-color: #f3f3f3; padding:10px;">
+	<div class="container nm" id="change" style="width: 55%; margin: 30 45;">
+		<div class="row">
+			<div class="col-md-12">
+				<div class="d-inline-block 	col-md-5">
+					<label> Acc no. </label>
+					<input type="text" name="acc_number">
+				</div>
+				<div class="d-inline-block 	col-md-5">
+					<label> Branch </label>
+					<input type="text" name="branch">
+				</div>
+				<div class="d-inline-block 	col-md-1">
+					<a style="background-color: #199319; color: white; padding: 10px;"> Verify </a>
+				</div>
+			</div>
+		</div>
+
+		<p> </p>
+
+	<!-- style="display: none;" -->
+		<div id="" class="row">
+			<div class="col-md-12">
+				<div class="d-inline-block 	col-md-5">
+					<label> Name </label>
+					<input type="text" name="name" disabled="disabled">
+				</div>
+
+				<div class="d-inline-block 	col-md-5">
+					<label> Amount </label>
+					<input type="number" name="amount">
+				</div>
+
+				<p></p>
+
+				<!-- <div class="d-inline-block 	col-md-5">
+					<label> Date </label>
+					<input type="date" name="date">
+				</div> -->
+
+				<div class="d-inline-block 	col-md-5">
+					<label> Signature </label>
+					<input type="text" name="sign">
+				</div>
+
+				<div class="d-inline-block 	col-md-5">
+					<label> Enter your pin </label>
+					<input type="number" name="pin">
+				</div>
+
+				<div class="d-inline-block 	col-md-1">
+					<a style="background-color: #199319; color: white; padding: 10px;"> Withdraw </a>
+				</div>
+			</div>
+		</div>
+
+		<p> </p>
+
+		<!-- <div id="" class="row">
+			<div class="col-md-12">
+				<div class="d-inline-block 	col-md-5">
+					<label> Enter your pin </label>
+					<input type="number" name="pin">
+				</div>
+			</div>
+		</div>
+		<br> -->
+
+		<br>
+		<h4 class="text-center" style="background-color: green; padding:10px; color: white;"> Transaction Succesful </h4>
+		<br>
+
+		<div style="background-color: white; padding:10px">
+			<div class="row">
+				<div class="col-md-12">
+					<div class="d-inline-block col-md-5">
+						<span> Name :</span> <span> Jediaih </span>
+					</div>
+
+					<div class="d-inline-block col-md-5">
+						<span> Acc. no. :</span> <span> Jediaih </span>
+					</div>				
+				</div>
+			</div>
+
+
+			<div class="row">
+				<div class="col-md-12">
+					<div class="d-inline-block col-md-5">
+						<span> Branch :</span> <span> Jediaih </span>
+					</div>
+
+					<div class="d-inline-block col-md-5">
+						<span> Amount :</span> <span> Jediaih </span>
+					</div>				
+				</div>
+			</div>
+
+			<div class="row">
+				<div class="col-md-12">
+					<div class="col-md-6">
+						<span> Time :</span> <span> Jediaih </span>
+					</div>	
+				</div>
+			</div>
+			<br>
+
+			<p> Visit the nearest bank with the receipt and your national id to complete the transaction </p>
+		</div>
+	</div>
+	<br>
+</div>
+
+{% endblock %}
