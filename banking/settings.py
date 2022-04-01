@@ -25,7 +25,7 @@ SECRET_KEY = '$s^4++%551(a9dv*%sm2m=(qk*5i0(rhhq38k_*j(qm)7no$nv'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', 'https://bankasugo.herokuapp.com/']
 
 
 # Application definition
@@ -86,18 +86,30 @@ WSGI_APPLICATION = 'banking.wsgi.application'
 #     }
 # }
 
-
-DATABASES = {
-    'default': {
-    # 'ENGINE':'django.db.backends.postgresql_psycopg2',
-    'ENGINE':'django.contrib.gis.db.backends.postgis',
-    'HOST':'localhost',
-    'USER':'postgres',
-    'NAME':'banks',
-    'PORT':'5432',
-    'PASSWORD':'postgres1234'
+if os.environ.get('ENV') == 'DEV':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.contrib.gis.db.backends.postgis',
+            'NAME': os.environ.get('DB_NAME'),
+            'USER': os.environ.get('DB_USER'),
+            'PASSWORD': os.environ.get('DB_PASS'),
+            'HOST': os.environ.get('DB_HOST'),
+            'PORT': '5432',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+        # 'ENGINE':'django.db.backends.postgresql_psycopg2',
+            'ENGINE':'django.contrib.gis.db.backends.postgis',
+            'HOST':'localhost',
+            'USER':'postgres',
+            'NAME':'banks',
+            'PORT':'5432',
+            'PASSWORD':'postgres1234'
+        }
+    }
+
 
 
 
