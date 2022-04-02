@@ -14,7 +14,7 @@ from . views import *
 urlpatterns = [
 	# path('', include(router.urls)),
 	path('index', views.index, name='index'),
-	path('welcome', views.welcome, name='welcome'),
+	path('', views.welcome, name='welcome'),
 	path('balance', views.BalanceView.as_view(), name='balance'),
 	path('register', views.RegisterView.as_view(), name='register'),
 	path('transaction', views.TransactionView.as_view(), name='transaction'),

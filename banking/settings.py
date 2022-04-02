@@ -35,8 +35,8 @@ if os.environ.get('ENV') in ENV_LIST:
 else:
     DEBUG = True
 
-
-ALLOWED_HOSTS = ['localhost', 'https://bankasugo.herokuapp.com/']
+# DEBUG = True
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
