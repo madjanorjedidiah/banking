@@ -31,6 +31,9 @@ def index(request):
 	return render(request, 'banks/index.html')
 
 
+def welcome(request):
+	return render(request, 'banks/welcome.html')
+
 def withdraw(request):
 	return render(request, 'banks/withdraw.html')
 
