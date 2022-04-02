@@ -11,9 +11,13 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+load_dotenv()
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -23,7 +27,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '$s^4++%551(a9dv*%sm2m=(qk*5i0(rhhq38k_*j(qm)7no$nv'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG = True
+
+ENV_LIST = ['HEROKU', 'DEV']
+if os.environ.get('ENV') in ENV_LIST:
+    DEBUG = False
+else:
+    DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', 'https://bankasugo.herokuapp.com/']
 
