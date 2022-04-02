@@ -172,7 +172,8 @@ USE_L10N = True
 
 USE_TZ = True
 
-GOOGLE_MAPS_API_KEY = MAP_KEY
+
+GOOGLE_MAPS_API_KEY = os.environ.get('MAP_KEY')
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
@@ -191,3 +192,10 @@ STATIC_ROOT =  os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'static'),
 )
+
+
+
+# import dj_database_url
+# if os.environ.get('ENV') == 'DEV':
+#     db_from_env = dj_database_url.config(conn_max_age=500)
+#     DATABASES['default'].update(db_from_env)
