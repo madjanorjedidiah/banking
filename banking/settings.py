@@ -35,6 +35,7 @@ if os.environ.get('ENV') in ENV_LIST:
 else:
     DEBUG = True
 
+
 ALLOWED_HOSTS = ['localhost', 'https://bankasugo.herokuapp.com/']
 
 
@@ -171,7 +172,9 @@ USE_L10N = True
 
 USE_TZ = True
 
-GOOGLE_MAPS_API_KEY = 'key=AIzaSyC-dFHYjTqEVLndbN2gdvXsx09jfJHmNc8&callback=myMap'
+GOOGLE_MAPS_API_KEY = MAP_KEY
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
