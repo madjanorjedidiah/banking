@@ -11,10 +11,12 @@ from .controllers.serializers import *
 from datetime import datetime
 from rest_framework.authentication import *
 from rest_framework.permissions import (AllowAny, IsAuthenticated, IsAdminUser)
-from rest_framework_jwt.authentication import JSONWebTokenAuthentication
+# from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 from django.db import transaction
 from rest_framework import status
-
+from rest_framework.authtoken.models import Token
+from rest_framework.authtoken.views import ObtainAuthToken
+from django.db.models import Count, F, Value
 
 
 
@@ -110,7 +112,6 @@ class RegisterView(APIView):
 				user = Customer.objects.create(**serializer.validated_data)
 				user.set_password(password)
 				user.save()
-				print(user)
 				return Response(serializer.validated_data, status=status.HTTP_201_CREATED)
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
@@ -119,15 +120,17 @@ class RegisterView(APIView):
 class BalanceView(APIView):
 	serializer_class = BalanceSerializer
 	permission_classes = (IsAuthenticated,)
-	authentication_classes = [JSONWebTokenAuthentication]
+	authentication_classes = [TokenAuthentication,]
 
-	def get(self, request):
+	def post(self, request):
 		serializer = self.serializer_class(data=request.data)
 		if serializer.is_valid(raise_exception=True):
 			bal = CustomerWallet.objects.filter(
-				email=self.request.user, 
+				customer_fk=self.request.user, 
 				account_type=serializer.validated_data['account_type'])
-			if bal and bal[0].email == self.request.user: return Response(serializer_class(bal).data, status=status.HTTP_200_OK)
+			data = self.serializer_class(bal[0]).data
+			data['balance'] = bal[0].account_balance
+			if bal and bal[0].customer_fk == self.request.user: return Response(data, status=status.HTTP_200_OK)
 			else: return Response(status=status.HTTP_400_BAD_REQUEST)
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
@@ -136,89 +139,100 @@ class BalanceView(APIView):
 class TransactionView(APIView):
 	serializer_class = TransactSerializer
 	permission_classes = (IsAuthenticated,)
-	authentication_classes = [JSONWebTokenAuthentication,]
+	authentication_classes = [TokenAuthentication,]
 	# queryset = history.objects.filter(customer_fk__email=self.request.user)
 
 	def post(self, request):
 		now = datetime.now()
 
 		current_time = now.strftime("%H:%M:%S")
-		if current_time <= '15:30:00':
+		# if current_time <= '15:30:00':
 
-			serializer = self.serializer_class(data=request.data)
-			if serializer.is_valid(raise_exception=True):
-				
-				if serializer.validated_data['purpose'] == 'deposit':
-					with transaction.atomic():
-						trans = history.objects.filter(
-							customer_fk__email=self.request.user, 
-							customer_wallet_fk__account_type=serializer.validated_data['account_type']
-							).update(F('account_balance') + serializer.validated_data.get('amount', 0))
-						# hist = history.objects.filter(customer_fk__email = self.request.user)
-						if trans: 
-							history.objects.create(
+		serializer = self.serializer_class(data=request.data)
+		if serializer.is_valid(raise_exception=True):
+			
+			if serializer.validated_data['purpose'] == 'deposit':
+				with transaction.atomic():
+					trans = CustomerWallet.objects.filter(
+						customer_fk=self.request.user, 
+						account_type=serializer.validated_data['account_type']
+						)
+					trans.update(account_balance=F('account_balance') + serializer.validated_data.get('amount', 0))
+					# hist = history.objects.filter(customer_fk__email = self.request.user)
+					if trans: 
+						Transaction.objects.create(
+							purpose=serializer.validated_data['purpose'],
+							amount=serializer.validated_data['amount'],
+							success=True,
+							customer_wallet_fk_id=trans[0].id,
+							customer_fk=self.request.user,
+							)
+						return Response({"message":"deposit done successfully"}, status=status.HTTP_200_OK)
+					# else:
+					# 	Transaction.objects.create(
+					# 		purpose=serializer.validated_data['purpose'],
+					# 		amount=serializer.validated_data['amount'],
+					# 		success=False,
+					# 		customer_wallet_fk_id=trans[0].id,
+					# 		customer_fk=self.request.user,
+					# 		)
+					# 	return Response({"message":"deposit failed"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+			else:
+				with transaction.atomic():
+					chk = CustomerWallet.objects.filter(
+						customer_fk=self.request.user, 
+						account_type=serializer.validated_data['account_type']
+						)
+					if chk and chk[0].account_balance >= serializer.validated_data.get('amount', 0):
+						withdraw = CustomerWallet.objects.filter(
+							customer_fk=self.request.user, 
+							account_type=serializer.validated_data['account_type']
+							).update(account_balance=F('account_balance') - serializer.validated_data.get('amount', 0))
+						
+						if withdraw: 
+							Transaction.objects.create(
 								purpose=serializer.validated_data['purpose'],
 								amount=serializer.validated_data['amount'],
 								success=True,
-								customer_wallet_fk=serializer.validated_data['customer_wallet_fk'],
-								customer_fk=serializer.validated_data['customer_fk'],
+								customer_wallet_fk_id=chk[0].id,
+								customer_fk=self.request.user,
 								)
-							return Response({"message":"deposit done successfully"}, status=status.HTTP_200_OK)
-						else:
-							history.objects.create(
-								purpose=serializer.validated_data['purpose'],
-								amount=serializer.validated_data['amount'],
-								success=False,
-								customer_wallet_fk=serializer.validated_data['customer_wallet_fk'],
-								customer_fk=serializer.validated_data['customer_fk'],
-								)
-							return Response({"message":"deposit failed"}, status=status.HTTP_400_BAD_REQUEST)
+							return Response({"message":"withdraw done successfully"}, status=status.HTTP_200_OK)
+						# else:
+						# 	Transaction.objects.create(
+						# 		purpose=serializer.validated_data['purpose'],
+						# 		amount=serializer.validated_data['amount'],
+						# 		success=False,
+						# 		customer_wallet_fk_id=trans[0].id,
+						# 		customer_fk=self.request.user,
+						# 		)
+						# 	return Response({"message":"withdraw failed"}, status=status.HTTP_400_BAD_REQUEST)
+					else:
+						return Response({"message":"insufficient balance"}, status=status.HTTP_400_BAD_REQUEST)
+
+		return Response(status=status.HTTP_400_BAD_REQUEST)
+		# else:
+		# 	return Response({"message":"closing time up"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-				else:
-					with transaction.atomic():
-						chk = history.objects.filter(
-							customer_fk__email=self.request.user, 
-							customer_wallet_fk__account_type=serializer.validated_data['account_type']
-							)
-						if chk and chk[0].account_balance >= serializer.validated_data.get('amount', 0):
-							withdraw = history.objects.filter(
-								customer_fk__email=self.request.user, 
-								customer_wallet_fk__account_type=serializer.validated_data['account_type']
-								).update(F('account_balance') - serializer.validated_data.get('amount', 0))
-							
-							if withdraw: 
-								history.objects.create(
-									purpose=serializer.validated_data['purpose'],
-									amount=serializer.validated_data['amount'],
-									success=True,
-									customer_wallet_fk=serializer.validated_data['customer_wallet_fk'],
-									customer_fk=serializer.validated_data['customer_fk'],
-									)
-								return Response({"message":"withdraw done successfully"}, status=status.HTTP_200_OK)
-							else:
-								history.objects.create(
-									purpose=serializer.validated_data['purpose'],
-									amount=serializer.validated_data['amount'],
-									success=False,
-									customer_wallet_fk=serializer.validated_data['customer_wallet_fk'],
-									customer_fk=serializer.validated_data['customer_fk'],
-									)
-								return Response({"message":"withdraw failed"}, status=status.HTTP_400_BAD_REQUEST)
-						else:
-							return Response({"message":"insufficient balance"}, status=status.HTTP_400_BAD_REQUEST)
+class LoginView(APIView):
+	permission_classes = (AllowAny,)
+	serializer_class = LoginSerializers
 
-			return Response(status=status.HTTP_400_BAD_REQUEST)
-		else:
-			return Response({"message":"closing time up"}, status=status.HTTP_400_BAD_REQUEST)
+	def post(self, validated_data):
+		serializer = self.serializer_class(data=validated_data.data)
+		if serializer.is_valid(raise_exception=True):
+			user = authenticate(username=validated_data.data['email'], password=validated_data.data['password'])
+			if not user:
+				return Response({"message":"invalid credentials."}, status=status.HTTP_401_UNATHORISED)
+			else:
+				# get or create token
+				token, created = Token.objects.get_or_create(user=user)
+				return Response({'user':serializer.data['email'], 'token': token.key})
+		return Response(status=status.HTTP_400_BAD_REQUEST)
 
-
-# class LoginView(APIView):
-# 	permission_classes = (AllowAny,)
-# 	serializer_class = LoginSerializers
-
-# 	def post(self, validated_data):
-		
 
 # def get_this_day(self):
 #         start = now().date()

@@ -38,14 +38,7 @@ class TestViews(APITestCase):
 
 
 	def testLogin(self):
-		user = Customer.objects.create(**self.reg_data)
-		user.is_active=True
-		user.save()
 		log = self.client.post(reverse('login'), self.log_data, format='json')
-		print(log)
-		# token = log.data['token']
-		# print(token)
-		self.client.credentials(HTTP_AUTHORIATION=f'Bearer {token}')
 		return self.assertEqual(log.status_code, 200)
 
 

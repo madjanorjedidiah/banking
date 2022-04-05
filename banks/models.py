@@ -125,7 +125,13 @@ class Customer(AbstractBaseUser, PermissionsMixin):
 
 
 class CustomerWallet(models.Model):
-    account_type = models.CharField(max_length=100, blank=True)
+    ACC = (
+        ('savings','savings'),
+        ('current','current'),
+        ('cheque','cheque')
+        )
+        
+    account_type = models.CharField(choices=ACC, max_length=100, blank=True)
     bank_branch = models.CharField(max_length=100, blank=True)
     account_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     customer_fk = models.ForeignKey(Customer, on_delete=models.CASCADE)
@@ -136,7 +142,7 @@ class CustomerWallet(models.Model):
 
 
 
-class history(models.Model):
+class Transaction(models.Model):
     """ this is to track all transactions within the system """
 
     action = (
@@ -149,6 +155,6 @@ class history(models.Model):
     success = models.BooleanField(default=True)
     date_created = models.DateTimeField(auto_now_add=True)
     processed = models.BooleanField(default=False)
-    processed_date = models.DateTimeField()
+    processed_date = models.DateTimeField(blank=True, null=True)
     customer_wallet_fk = models.ForeignKey(CustomerWallet, on_delete=models.CASCADE)
     customer_fk = models.ForeignKey(Customer, on_delete=models.CASCADE)

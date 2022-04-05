@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from banks.models import history, Customer, CustomerWallet
+from banks.models import Transaction, Customer, CustomerWallet
+from django.utils.translation import ugettext_lazy as _
 
 
 
@@ -7,8 +8,8 @@ class TransactSerializer(serializers.ModelSerializer):
 	account_type = serializers.CharField(max_length=100)
 
 	class Meta:
-		model = history
-		fields = ('id', 'amount', 'purpose', 'account_type', 'customer_fk', 'customer_wallet_fk')
+		model = Transaction
+		fields = ( 'amount', 'purpose', 'account_type')
 
 
 	def validate(self, validated_data):
@@ -18,8 +19,8 @@ class TransactSerializer(serializers.ModelSerializer):
 		if validated_data['purpose'] == '' or None:
 			raise ValidationError('purpose must not be empty')
 
-		if validated_data['customer_fk'] == '' or None:
-			raise ValidationError('customer is not known')
+		# if validated_data['customer_fk'] == '' or None:
+		# 	raise ValidationError('customer is not known')
 
 		return validated_data
 
@@ -47,7 +48,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class BalanceSerializer(serializers.ModelSerializer):
-	account_type = serializers.CharField(max_length=100)
+	# account_type = serializers.CharField(max_length=100)
 
 	class Meta:
 		model = CustomerWallet
@@ -56,10 +57,25 @@ class BalanceSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializers(serializers.ModelSerializer):
+	email = serializers.CharField(max_length=255)
+	password = serializers.CharField(
+	    label=_("Password"),
+	    style={'input_type': 'password'},
+	    trim_whitespace=False,
+	    max_length=128,
+	    write_only=True
+	)
+
+	id = serializers.CharField(
+	    label=_("id"),
+	    trim_whitespace=False,
+	    max_length=128,
+	    read_only=True
+	    )
 
 	class Meta:
 		model = Customer
-		fields = ('email', 'password')
+		fields = ('id', 'email', 'password')
 
 	def validate(self, validated_data):
 		if validated_data['email'] is None:
