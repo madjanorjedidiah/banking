@@ -17,8 +17,8 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
 from django.db.models import Count, F, Value
-
-
+from rest_framework.decorators import api_view
+import time, json
 
 # key = AIzaSyDjuOl64GgCThf9Z_ZlmVrd6clvKzEBqkA
 # e.g
@@ -96,6 +96,40 @@ def nearestBanks(request):
 
 # 	return render(request, 'banks/nearBanks.html', context)
 
+
+
+@api_view(['POST'])
+def nearestBanksApi(request):
+	context = {}
+	arr = []
+	serializer = nearestBankSerializer(data=request.data)
+	if serializer.is_valid(raise_exception=True):
+		lon = float(request.data.get('lon'))
+		lat = float(request.data.get('lat'))
+		bank_name = request.data.get('bank_name')
+		headers, payload={}, {}
+
+		""" Distances will be calculated from this point, which does not have to be projected,
+		that is if srid=4326"""
+		pnt = GEOSGeometry('POINT(%d %d)' %(lon, lat), srid=4326)
+		# Find all banks within 150 km. Units assumes meters should oly numerics be used
+		near = Bnks.objects.filter(bank_nam_1__iexact=bank_name, geom__distance_lte=(pnt, D(km=150)))[:3]
+		if near:
+			for a in near:
+				data = {}
+				loc = f"https://maps.googleapis.com/maps/api/directions/json?origin={lat},{lon}&destination={a.geom.centroid.y},{a.geom.centroid.x}&sensor=false&key=AIzaSyDjuOl64GgCThf9Z_ZlmVrd6clvKzEBqkA"
+				response = requests.request("GET", loc, headers=headers, data=payload)
+				json_data = json.loads(response.text)
+				data['distance'] = json_data['routes'][0]['legs'][0]['distance']['text']
+				data['time'] = json_data['routes'][0]['legs'][0]['duration']['text']
+				arr.append(data)
+				time.sleep(1) 
+				
+			context['data'] = arr
+			return Response(context, status=status.HTTP_200_OK)
+		else:
+			context['data'] = 'No data'
+			return Response(context, status=status.HTTP_200_OK)
 
 
 class RegisterView(APIView):

@@ -84,3 +84,22 @@ class LoginSerializers(serializers.ModelSerializer):
 		if validated_data['password'] is None:
 			raise ValidationError('password must not be empty')
 		return validated_data
+
+
+class nearestBankSerializer(serializers.Serializer):
+	bank_name = serializers.CharField(max_length=100)
+	lon = serializers.FloatField()
+	lat = serializers.FloatField()
+
+	def validate(self, validated_data):
+		if validated_data['bank_name'] is None:
+			raise ValidationError('bank_name must not be empty')
+			
+		if validated_data['lon'] is None:
+			raise ValidationError('lon must not be empty')
+
+		if validated_data['lat'] is None:
+			raise ValidationError('lat must not be empty')
+		return validated_data
+
+
