@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.gis',
     'django_google_maps',
     'rest_framework',
+    'corsheaders',
     # 'rest_framework_jwt',
     # 'rest_framework_jwt.blacklist',
     'rest_framework.authtoken',
@@ -66,6 +67,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'banking.urls'
@@ -117,13 +119,17 @@ else:
             'ENGINE':'django.contrib.gis.db.backends.postgis',
             'HOST':'localhost',
             'USER':'postgres',
-            'NAME':'banks',
+            'NAME':'bank',
             'PORT':'5432',
             'PASSWORD':'postgres1234'
         }
     }
 
 
+CORS_ORIGIN_ALLOW_ALL = True
+# CORS_ORIGIN_WHITELIST = (
+#   'http://localhost:8000', '*'
+# )
 
 
 REST_FRAMEWORK = {

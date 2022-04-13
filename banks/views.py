@@ -19,6 +19,8 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from django.db.models import Count, F, Value
 from rest_framework.decorators import api_view
 import time, json
+from django.contrib.auth.hashers import make_password 
+import hashlib
 
 # key = AIzaSyDjuOl64GgCThf9Z_ZlmVrd6clvKzEBqkA
 # e.g
@@ -27,6 +29,8 @@ import time, json
 d = routes[0]['legs'][0]['distance']['text']
 t = routes[0]['legs'][0]['duration']['text']
 """
+
+
 
 
 def index(request):
@@ -135,8 +139,6 @@ def nearestBanksApi(request):
 class RegisterView(APIView):
 	serializer_class = RegisterSerializer
 	permission_classes = (AllowAny,)
-	# allowed_methods = ['post']
-
 	
 	def post(self, request):
 		serializer = self.serializer_class(data=request.data)
@@ -146,7 +148,51 @@ class RegisterView(APIView):
 				user = Customer.objects.create(**serializer.validated_data)
 				user.set_password(password)
 				user.save()
-				return Response(serializer.validated_data, status=status.HTTP_201_CREATED)
+				token, created = Token.objects.get_or_create(user=user)
+				return Response({'token': token.key, 'data':serializer.validated_data}, status=status.HTTP_201_CREATED)
+		return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class RegisterBankAccount(APIView):
+	serializer_class = PinSerializer
+	permission_classes = (IsAuthenticated,)
+	authentication_classes = [TokenAuthentication,]
+	
+	def post(self, request):
+		serializer = self.serializer_class(data=request.data)
+		if serializer.is_valid(raise_exception=True):
+			with transaction.atomic():
+				pin = serializer.validated_data.pop('pin', None)
+				accnt, created = CustomerAccount.objects.get_or_create(
+					account_number=request.data['account_number'],
+					pin = request.data['pin'],
+					customer_fk_id = request.user.id,
+					)
+				if created:
+					# # accnt.pin = make_password('pin')
+					# accnt.save()
+					CustomerWallet.objects.create(customer_account_fk_id=accnt.id)
+					return Response(serializer.validated_data, status=status.HTTP_201_CREATED)
+				else:	return Response({"message":"account already exists."}, status=status.HTTP_201_CREATED)
+		return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class ConfirmPin(APIView):
+	serializer_class = PinSerializer
+	permission_classes = (IsAuthenticated,)
+	authentication_classes = [TokenAuthentication,]
+	
+	def post(self, request):
+		serializer = self.serializer_class(data=request.data)
+		if serializer.is_valid(raise_exception=True):
+			acc = CustomerAccount.objects.filter(customer_fk__id=request.user.id)
+			if acc:
+				verify_pin = CustomerAccount.objects.filter(account_number=acc[0].account_number,
+					pin = request.data['pin'])
+				if verify_pin:
+					return Response({"message":"valid credentials."}, status=status.HTTP_200_OK)
+				else:	return Response({"message":"invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
+			return Response(serializer.validated_data, status=status.HTTP_404_NOT_FOUND)
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -160,7 +206,7 @@ class BalanceView(APIView):
 		serializer = self.serializer_class(data=request.data)
 		if serializer.is_valid(raise_exception=True):
 			bal = CustomerWallet.objects.filter(
-				customer_fk=self.request.user, 
+				customer_account_fk__customer_fk=self.request.user, 
 				account_type=serializer.validated_data['account_type'])
 			data = self.serializer_class(bal[0]).data
 			data['balance'] = bal[0].account_balance
@@ -168,87 +214,13 @@ class BalanceView(APIView):
 			else: return Response(status=status.HTTP_400_BAD_REQUEST)
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
+	def get(self, request):
+		acc = CustomerWallet.objects.filter(customer_account_fk__customer_fk=request.user)
+		if acc:
+			return Response({"account_number": acc[0].account_balance}, status=status.HTTP_200_OK)
+		else:
+			return Response({"message": "account does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
-
-class TransactionView(APIView):
-	serializer_class = TransactSerializer
-	permission_classes = (IsAuthenticated,)
-	authentication_classes = [TokenAuthentication,]
-	# queryset = history.objects.filter(customer_fk__email=self.request.user)
-
-	def post(self, request):
-		now = datetime.now()
-
-		current_time = now.strftime("%H:%M:%S")
-		# if current_time <= '15:30:00':
-
-		serializer = self.serializer_class(data=request.data)
-		if serializer.is_valid(raise_exception=True):
-			
-			if serializer.validated_data['purpose'] == 'deposit':
-				with transaction.atomic():
-					trans = CustomerWallet.objects.filter(
-						customer_fk=self.request.user, 
-						account_type=serializer.validated_data['account_type']
-						)
-					trans.update(account_balance=F('account_balance') + serializer.validated_data.get('amount', 0))
-					# hist = history.objects.filter(customer_fk__email = self.request.user)
-					if trans: 
-						Transaction.objects.create(
-							purpose=serializer.validated_data['purpose'],
-							amount=serializer.validated_data['amount'],
-							success=True,
-							customer_wallet_fk_id=trans[0].id,
-							customer_fk=self.request.user,
-							)
-						return Response({"message":"deposit done successfully"}, status=status.HTTP_200_OK)
-					# else:
-					# 	Transaction.objects.create(
-					# 		purpose=serializer.validated_data['purpose'],
-					# 		amount=serializer.validated_data['amount'],
-					# 		success=False,
-					# 		customer_wallet_fk_id=trans[0].id,
-					# 		customer_fk=self.request.user,
-					# 		)
-					# 	return Response({"message":"deposit failed"}, status=status.HTTP_400_BAD_REQUEST)
-
-
-			else:
-				with transaction.atomic():
-					chk = CustomerWallet.objects.filter(
-						customer_fk=self.request.user, 
-						account_type=serializer.validated_data['account_type']
-						)
-					if chk and chk[0].account_balance >= serializer.validated_data.get('amount', 0):
-						withdraw = CustomerWallet.objects.filter(
-							customer_fk=self.request.user, 
-							account_type=serializer.validated_data['account_type']
-							).update(account_balance=F('account_balance') - serializer.validated_data.get('amount', 0))
-						
-						if withdraw: 
-							Transaction.objects.create(
-								purpose=serializer.validated_data['purpose'],
-								amount=serializer.validated_data['amount'],
-								success=True,
-								customer_wallet_fk_id=chk[0].id,
-								customer_fk=self.request.user,
-								)
-							return Response({"message":"withdraw done successfully"}, status=status.HTTP_200_OK)
-						# else:
-						# 	Transaction.objects.create(
-						# 		purpose=serializer.validated_data['purpose'],
-						# 		amount=serializer.validated_data['amount'],
-						# 		success=False,
-						# 		customer_wallet_fk_id=trans[0].id,
-						# 		customer_fk=self.request.user,
-						# 		)
-						# 	return Response({"message":"withdraw failed"}, status=status.HTTP_400_BAD_REQUEST)
-					else:
-						return Response({"message":"insufficient balance"}, status=status.HTTP_400_BAD_REQUEST)
-
-		return Response(status=status.HTTP_400_BAD_REQUEST)
-		# else:
-		# 	return Response({"message":"closing time up"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LoginView(APIView):
@@ -259,12 +231,27 @@ class LoginView(APIView):
 		serializer = self.serializer_class(data=validated_data.data)
 		if serializer.is_valid(raise_exception=True):
 			user = authenticate(username=validated_data.data['email'], password=validated_data.data['password'])
-			if not user:
-				return Response({"message":"invalid credentials."}, status=status.HTTP_401_UNATHORISED)
-			else:
+			if user:
 				# get or create token
 				token, created = Token.objects.get_or_create(user=user)
 				return Response({'user':serializer.data['email'], 'token': token.key})
+			else:
+				return Response({"message":"invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
+		return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class AccountAuthenticateView(APIView):
+	permission_classes = (AllowAny,)
+	serializer_class = AccountSerializer
+
+	def post(self, validated_data):
+		serializer = self.serializer_class(data=validated_data.data)
+		if serializer.is_valid(raise_exception=True):
+			user_accnt = authenticate(account_number=validated_data.data['account_number'], pin=validated_data.data['pin'])
+			if user_accnt:
+				return Response({'message':"account validated"}, status=status.HTTP_200_OK)
+			else:
+				return Response({"message":"invalid credentials."}, status=status.HTTP_401_UNATHORISED)
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -284,3 +271,160 @@ def completeTodayTransactions(request, obj_id):
 	today = datetime.now().date()
 	cur = history.objects.filter(id=obj_id).update(processed=True, processed_date=datetime.now())
 	return 'done'
+
+
+
+
+
+
+
+class CashDepositView(APIView):
+	serializer_class = CashSerializer
+	permission_classes = (IsAuthenticated,)
+	authentication_classes = [TokenAuthentication,]
+
+	def post(self, request):
+		now = datetime.now()
+
+		current_time = now.strftime("%H:%M:%S")
+		# if current_time <= '15:30:00':
+
+		serializer = self.serializer_class(data=request.data)
+		if serializer.is_valid(raise_exception=True):
+			
+			# if serializer.validated_data['deposit_form'] == 'self':
+			with transaction.atomic():
+				accnt = CustomerWallet.objects.filter(
+					customer_account_fk__account_number=serializer.validated_data['account_number']
+					)
+				if accnt:
+					accnt.update(account_balance=F('account_balance') + serializer.validated_data.get('amount', 0))
+					deposit = Deposits.objects.create(
+						trans_form='cash',
+						depositor_id=self.request.user.id,
+						amount=serializer.validated_data['amount']
+						)
+					cash = CashDeposits.objects.create(receiver_id=accnt[0].customer_account_fk.id, deposit_fk_id=deposit.id)
+					Transaction.objects.create(
+						purpose='deposit',
+						amount=serializer.validated_data['amount'],
+						success=True,
+						customer_wallet_fk_id=accnt[0].id,
+						customer_fk_id=self.request.user.id,
+						)
+					return Response({"message":"deposit done successfully"}, status=status.HTTP_200_OK)
+				else:	return Response({"message": "account does not exist"}, status=status.HTTP_404_NOT_FOUND)
+		return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChequeDepositView(APIView):
+	serializer_class = ChequeSerializer
+	permission_classes = (IsAuthenticated,)
+	authentication_classes = [TokenAuthentication,]
+
+	def post(self, request):
+		now = datetime.now()
+
+		current_time = now.strftime("%H:%M:%S")
+		# if current_time <= '15:30:00':
+
+		serializer = self.serializer_class(data=request.data)
+		if serializer.is_valid(raise_exception=True):
+			
+			# if serializer.validated_data['deposit_form'] == 'self':
+			with transaction.atomic():
+				accnt = CustomerWallet.objects.filter(
+					customer_account_fk__account_number=serializer.validated_data['account_number']
+					)
+				if accnt:
+					accnt.update(
+						account_balance=F('account_balance') + serializer.validated_data.get('amount', 0))
+					deposit = Deposits.objects.create(
+						trans_form='cheque',
+						depositor_id=self.request.user.id,
+						amount=serializer.validated_data['amount']
+						)
+					cheque = ChequeDeposits.objects.create(
+						receiver_id=accnt[0].customer_account_fk.id, 
+						deposit_fk_id=deposit.id,
+						bank_name=serializer.validated_data['bank_name'],
+						bank_branch=serializer.validated_data['bank_branch'],
+						bank_account_number=serializer.validated_data['bank_account_number'],
+						)
+					Transaction.objects.create(
+						purpose='deposit',
+						amount=serializer.validated_data['amount'],
+						success=True,
+						customer_wallet_fk_id=accnt[0].id,
+						customer_fk_id=self.request.user.id,
+						)
+					return Response({"message":"deposit done successfully"}, status=status.HTTP_200_OK)
+				else:	return Response({"message": "account does not exist"}, status=status.HTTP_404_NOT_FOUND)
+		return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class TransferDepositToOwnAccountView(APIView):
+	serializer_class = TransferSerializer
+	permission_classes = (IsAuthenticated,)
+	authentication_classes = [TokenAuthentication,]
+
+	def post(self, request):
+		now = datetime.now()
+
+		current_time = now.strftime("%H:%M:%S")
+		# if current_time <= '15:30:00':
+
+		serializer = self.serializer_class(data=request.data)
+		if serializer.is_valid(raise_exception=True):
+			
+			with transaction.atomic():
+				s_accnt = CustomerWallet.objects.filter(
+					customer_account_fk__account_number=serializer.validated_data['sender_account_number']
+					)
+				r_accnt = CustomerWallet.objects.filter(
+					customer_account_fk__account_number=serializer.validated_data['reciever_account_number']
+					)
+				if s_accnt and r_accnt and s_accnt[0].account_balance >= serializer.validated_data.get('amount', 0):
+					s_wallet = s_accnt.update(
+						account_balance=F('account_balance') - serializer.validated_data.get('amount', 0))
+					r_wallet = r_accnt.update(
+						account_balance=F('account_balance') + serializer.validated_data.get('amount', 0))
+					deposit = Deposits.objects.create(
+						trans_form='account_to_account',
+						depositor_id=self.request.user.id,
+						amount=serializer.validated_data['amount']
+						)
+					transfer = TransferDeposits.objects.create(
+						sender_id=s_accnt[0].customer_account_fk.id,
+						receiver_id=r_accnt[0].customer_account_fk.id,
+						deposit_fk_id=deposit.id
+						)
+					Transaction.objects.create(
+						purpose='deposit',
+						amount=serializer.validated_data['amount'],
+						success=True,
+						customer_wallet_fk_id=r_accnt[0].id,
+						customer_fk_id=self.request.user.id,
+						)
+					Transaction.objects.create(
+						purpose='withdraw',
+						amount=serializer.validated_data['amount'],
+						success=True,
+						customer_wallet_fk_id=s_accnt[0].id,
+						customer_fk_id=self.request.user.id,
+						)
+					return Response({"message":"deposit done successfully"}, status=status.HTTP_200_OK)
+				else:	return Response({"message": "account does not exist"}, status=status.HTTP_404_NOT_FOUND)
+		return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetAccountDetails(APIView):
+	permission_classes = (IsAuthenticated,)
+	authentication_classes = [TokenAuthentication,]
+
+	def get(self, request):
+		acc = CustomerAccount.objects.filter(customer_fk=request.user)
+		if acc:
+			return Response({"account_number": acc[0].account_number}, status=status.HTTP_200_OK)
+		else:
+			return Response({"account does not exist"}, status=status.HTTP_404_NOT_FOUND)

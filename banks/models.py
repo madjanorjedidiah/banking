@@ -109,7 +109,6 @@ class Customer(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(auto_now_add=True)
     password = models.CharField(max_length=250)
-    # account_number = models.CharField(max_length=15, blank=True, unique=True)
 
     objects = UserManager()
 
@@ -121,7 +120,19 @@ class Customer(AbstractBaseUser, PermissionsMixin):
         return self.first_name + " " + self.last_name
 
     def __str__(self):
-        return self.email
+        return self.email 
+
+
+
+class CustomerAccount(models.Model):
+    account_number = models.CharField(max_length=15, blank=True, unique=True)
+    pin = models.CharField(max_length=500, blank=True)
+    customer_fk = models.ForeignKey(Customer, on_delete=models.CASCADE, blank=True, null=True)
+    date_created = models.DateTimeField(auto_now_add=True, null=True)
+
+    def __str__(self):
+        return self.account_number
+
 
 
 class CustomerWallet(models.Model):
@@ -129,27 +140,64 @@ class CustomerWallet(models.Model):
         ('savings','savings'),
         ('current','current'),
         ('cheque','cheque')
-        )
-        
-    account_type = models.CharField(choices=ACC, max_length=100, blank=True)
-    bank_branch = models.CharField(max_length=100, blank=True)
+        )   
+    account_type = models.CharField(choices=ACC, max_length=100, blank=True, null=True)
+    # bank_branch = models.CharField(max_length=100, blank=True)
     account_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
-    customer_fk = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    customer_account_fk = models.ForeignKey(CustomerAccount, on_delete=models.CASCADE)
+    date_created = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
         managed = True,
         db_table = 'customer_wallet'
 
 
+class Deposits(models.Model):
+    forms = (
+        ('cash', 'cash'),
+        ('cheque', 'cheque'),
+        ('account_to_account', 'account_to_account')
+    )
+    trans_form = models.CharField(max_length=20, choices=forms)
+    depositor = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    date_created = models.DateTimeField(auto_now_add=True, null=True)
+
+
+class ChequeDeposits(models.Model):
+    bank_name = models.CharField(max_length=100, blank=True)
+    bank_branch = models.CharField(max_length=100, blank=True)
+    bank_account_number =  models.BigIntegerField()
+    receiver = models.ForeignKey(CustomerAccount, on_delete=models.CASCADE)
+    deposit_fk = models.ForeignKey(Deposits, on_delete=models.CASCADE)
+    date_created = models.DateTimeField(auto_now_add=True, null=True)
+
+
+class CashDeposits(models.Model):
+    receiver = models.ForeignKey(CustomerAccount, on_delete=models.CASCADE)
+    deposit_fk = models.ForeignKey(Deposits, on_delete=models.CASCADE)
+    date_created = models.DateTimeField(auto_now_add=True, null=True)
+
+
+class TransferDeposits(models.Model):    
+    sender = models.ForeignKey(CustomerAccount, on_delete=models.CASCADE, related_name='sender')
+    receiver = models.ForeignKey(CustomerAccount, on_delete=models.CASCADE, related_name='receiver')
+    deposit_fk = models.ForeignKey(Deposits, on_delete=models.CASCADE)
+    date_created = models.DateTimeField(auto_now_add=True, null=True)
+
+
+class Withrawals(models.Model):
+    customer_fk = models.ForeignKey(CustomerAccount, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    date_created = models.DateTimeField(auto_now_add=True, null=True)
+
 
 class Transaction(models.Model):
     """ this is to track all transactions within the system """
-
     action = (
         ('withdraw', 'withdraw'),
         ('deposit', 'deposit')
     )
-
     purpose = models.CharField(choices=action, max_length=20, blank=True, null=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     success = models.BooleanField(default=True)
