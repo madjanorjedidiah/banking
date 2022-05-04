@@ -180,3 +180,12 @@ class ChequeSerializer(serializers.ModelSerializer):
 		if validated_data['amount'] == '' or None:
 			raise ValidationError('amount must not be empty')
 		return validated_data
+
+
+class WithdrawSerializer(serializers.Serializer):
+	amount = serializers.IntegerField()
+
+	def validate(self, validated_data):
+		if validated_data['amount'] is None:
+			raise ValidationError('amount must not be empty')
+		return validated_data

@@ -101,7 +101,7 @@ def nearestBanks(request):
 # 	return render(request, 'banks/nearBanks.html', context)
 
 
-
+""" get the nearest bank within your current location"""
 @api_view(['POST'])
 def nearestBanksApi(request):
 	context = {}
@@ -136,6 +136,7 @@ def nearestBanksApi(request):
 			return Response(context, status=status.HTTP_200_OK)
 
 
+""" register the user unto the mobile """
 class RegisterView(APIView):
 	serializer_class = RegisterSerializer
 	permission_classes = (AllowAny,)
@@ -153,6 +154,7 @@ class RegisterView(APIView):
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
+"""  register the bank account """
 class RegisterBankAccount(APIView):
 	serializer_class = PinSerializer
 	permission_classes = (IsAuthenticated,)
@@ -177,6 +179,7 @@ class RegisterBankAccount(APIView):
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
+"""  confir if if pin is correct or is in the system """
 class ConfirmPin(APIView):
 	serializer_class = PinSerializer
 	permission_classes = (IsAuthenticated,)
@@ -196,7 +199,7 @@ class ConfirmPin(APIView):
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
-
+"""  get the balance of an account """
 class BalanceView(APIView):
 	serializer_class = BalanceSerializer
 	permission_classes = (IsAuthenticated,)
@@ -217,12 +220,12 @@ class BalanceView(APIView):
 	def get(self, request):
 		acc = CustomerWallet.objects.filter(customer_account_fk__customer_fk=request.user)
 		if acc:
-			return Response({"account_number": acc[0].account_balance}, status=status.HTTP_200_OK)
+			return Response({"balance": acc[0].account_balance}, status=status.HTTP_200_OK)
 		else:
 			return Response({"message": "account does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
 
-
+"""  login into app  """
 class LoginView(APIView):
 	permission_classes = (AllowAny,)
 	serializer_class = LoginSerializers
@@ -240,6 +243,7 @@ class LoginView(APIView):
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
+""" authenticate the account no and pin  """
 class AccountAuthenticateView(APIView):
 	permission_classes = (AllowAny,)
 	serializer_class = AccountSerializer
@@ -261,12 +265,14 @@ class AccountAuthenticateView(APIView):
 #         return self.get_query_set().filter(pub_date__range=(start, end))
 
 
+"""  get all of the transactions made today """
 def todayTransactions(request):
 	today = datetime.now().date()
 	cur = history.objects.filter(date_created=today, success=True, processed=False)
 	return 'done'
 
 
+""" complete a today's transaction """
 def completeTodayTransactions(request, obj_id):
 	today = datetime.now().date()
 	cur = history.objects.filter(id=obj_id).update(processed=True, processed_date=datetime.now())
@@ -277,7 +283,7 @@ def completeTodayTransactions(request, obj_id):
 
 
 
-
+""" make a cash deposit into account """
 class CashDepositView(APIView):
 	serializer_class = CashSerializer
 	permission_classes = (IsAuthenticated,)
@@ -317,6 +323,7 @@ class CashDepositView(APIView):
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
+""" make a cheque deposit into account """
 class ChequeDepositView(APIView):
 	serializer_class = ChequeSerializer
 	permission_classes = (IsAuthenticated,)
@@ -363,6 +370,7 @@ class ChequeDepositView(APIView):
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
+""" make a deposit to your own account """
 class TransferDepositToOwnAccountView(APIView):
 	serializer_class = TransferSerializer
 	permission_classes = (IsAuthenticated,)
@@ -376,7 +384,6 @@ class TransferDepositToOwnAccountView(APIView):
 
 		serializer = self.serializer_class(data=request.data)
 		if serializer.is_valid(raise_exception=True):
-			
 			with transaction.atomic():
 				s_accnt = CustomerWallet.objects.filter(
 					customer_account_fk__account_number=serializer.validated_data['sender_account_number']
@@ -418,6 +425,7 @@ class TransferDepositToOwnAccountView(APIView):
 		return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
+""" get customer details"""
 class GetAccountDetails(APIView):
 	permission_classes = (IsAuthenticated,)
 	authentication_classes = [TokenAuthentication,]
@@ -428,3 +436,35 @@ class GetAccountDetails(APIView):
 			return Response({"account_number": acc[0].account_number}, status=status.HTTP_200_OK)
 		else:
 			return Response({"account does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class WithdrawCash(APIView):
+	permission_classes = (IsAuthenticated,)
+	authentication_classes = [TokenAuthentication,]
+	serializer_class = WithdrawSerializer
+
+	def post(self, request):
+		now = datetime.now()
+
+		current_time = now.strftime("%H:%M:%S")
+		# if current_time <= '15:30:00':
+
+		serializer = self.serializer_class(data=request.data)
+		if serializer.is_valid(raise_exception=True):
+			with transaction.atomic():
+				accnt = CustomerWallet.objects.filter(
+					customer_account_fk__customer_fk=self.request.user,
+					)
+				if accnt and accnt[0].account_balance >= serializer.validated_data.get('amount', 0):
+					accnt.update(
+						account_balance=F('account_balance') - serializer.validated_data.get('amount', 0))
+					Transaction.objects.create(
+						purpose='withdraw',
+						amount=serializer.validated_data['amount'],
+						success=True,
+						customer_wallet_fk_id=accnt[0].id,
+						customer_fk_id=self.request.user.id,
+						)
+					return Response({"message":"withdrawal done successfully", "balance":accnt[0].account_balance, "withrawed":serializer.validated_data.get('amount', 0)}, status=status.HTTP_200_OK)
+				else:	return Response({"message": "account does not exist"}, status=status.HTTP_404_NOT_FOUND)
+		return Response(status=status.HTTP_400_BAD_REQUEST)
