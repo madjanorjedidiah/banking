@@ -126,6 +126,8 @@ def nearestBanksApi(request):
 				json_data = json.loads(response.text)
 				data['distance'] = json_data['routes'][0]['legs'][0]['distance']['text']
 				data['time'] = json_data['routes'][0]['legs'][0]['duration']['text']
+				data['address'] = json_data['routes'][0]['legs'][0]['end_address']['text']
+				data['coordinates'] = json_data['routes'][0]['legs'][0]['end_location']['text']
 				arr.append(data)
 				time.sleep(1) 
 				
@@ -237,7 +239,7 @@ class LoginView(APIView):
 			if user:
 				# get or create token
 				token, created = Token.objects.get_or_create(user=user)
-				return Response({'user':serializer.data['email'], 'token': token.key})
+				return Response({'user':serializer.data['email'], 'token': token.key, 'pin_status':'yes' if CustomerAccount.objects.filter(customer_fk=user, pin__isnull=False) else 'no'})
 			else:
 				return Response({"message":"invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
 		return Response(status=status.HTTP_400_BAD_REQUEST)
