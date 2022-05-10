@@ -281,11 +281,6 @@ def completeTodayTransactions(request, obj_id):
 	cur = history.objects.filter(id=obj_id).update(processed=True, processed_date=datetime.now())
 	return 'done'
 
-
-
-
-
-
 """ make a cash deposit into account """
 class CashDepositView(APIView):
 	serializer_class = CashSerializer
