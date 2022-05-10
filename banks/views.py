@@ -44,6 +44,7 @@ def withdraw(request):
 	return render(request, 'banks/withdraw.html')
 
 
+
 def nearestBanks(request):
 	context = {}
 	arr = []
